@@ -1,14 +1,42 @@
 import express from 'express';
-import { createJob, getJobs } from '../controllers/job.controller.js';
+import {
+  createJob, getJobs, getJobById,
+  updateJob, deleteJob, getMyJobs
+} from '../controllers/job.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { authorize } from '../middleware/role.middleware.js';
+import { createJobValidator, updateJobValidator } from '../middleware/validators/job.validator.js';
 
 const router = express.Router();
 
-// Anyone logged in can VIEW jobs
-router.get('/', authenticate, getJobs);
+// ── Public Routes ──────────────────────────────────────────────
+router.get('/', getJobs);                    // anyone can view jobs
+router.get('/:id', getJobById);              // anyone can view one job
 
-// Only recruiters and admins can CREATE jobs
-router.post('/', authenticate, authorize('recruiter', 'admin'), createJob);
+// ── Protected Routes ───────────────────────────────────────────
+router.get('/my/jobs', authenticate, authorize('recruiter'), getMyJobs);
+
+router.post(
+  '/',
+  authenticate,
+  authorize('recruiter', 'admin'),
+  createJobValidator,                        // validate input
+  createJob
+);
+
+router.patch(
+  '/:id',
+  authenticate,
+  authorize('recruiter', 'admin'),
+  updateJobValidator,
+  updateJob
+);
+
+router.delete(
+  '/:id',
+  authenticate,
+  authorize('recruiter', 'admin'),
+  deleteJob
+);
 
 export default router;

@@ -66,6 +66,7 @@ import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.routes.js';
 import errorMiddleware from './middleware/error.middleware.js';
 import jobRoutes from './routes/job.routes.js';
+import applicationRoutes from './routes/application.routes.js';
 
 const app = express();
 
@@ -85,6 +86,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/jobs', jobRoutes);
+app.use('/api/v1/applications', applicationRoutes);
 
 app.use(errorMiddleware);
 

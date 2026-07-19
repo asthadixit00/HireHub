@@ -67,9 +67,11 @@ import authRoutes from './routes/auth.routes.js';
 import errorMiddleware from './middleware/error.middleware.js';
 import jobRoutes from './routes/job.routes.js';
 import applicationRoutes from './routes/application.routes.js';
+import uploadRoutes from './routes/upload.routes.js';
+
 
 const app = express();
-
+app.use('/api/v1/upload', uploadRoutes);
 app.use(helmet());
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',

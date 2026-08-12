@@ -39,15 +39,103 @@ export const createJob = async (req, res, next) => {
 
 // ─── GET ALL JOBS ─────────────────────────────────────────────
 // Public route — anyone can view jobs
+// ─── GET ALL JOBS WITH SEARCH + FILTER + PAGINATION ──────────
 export const getJobs = async (req, res, next) => {
   try {
-    const jobs = await Job.find({ status: 'open' })
-      .populate('postedBy', 'name email company')
-      .sort({ createdAt: -1 }); // newest first
+    const {
+      search,
+      location,
+      jobType,
+      experienceLevel,
+      minSalary,
+      maxSalary,
+      skills,
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // ── Build Filter Object ────────────────────────────────────
+    const filter = { status: 'open' };
+
+    // Search — checks title, description, skills using text index
+    if (search) {
+      filter.$or = [
+        { title:       { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { company:     { $regex: search, $options: 'i' } },
+        { skills:      { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Filter by location
+    if (location) {
+      filter.location = { $regex: location, $options: 'i' };
+    }
+
+    // Filter by job type
+    if (jobType) {
+      filter.jobType = jobType;
+    }
+
+    // Filter by experience level
+    if (experienceLevel) {
+      filter.experienceLevel = experienceLevel;
+    }
+
+    // Filter by salary range
+    if (minSalary) {
+      filter['salary.min'] = { $gte: Number(minSalary) };
+    }
+    if (maxSalary) {
+      filter['salary.max'] = { $lte: Number(maxSalary) };
+    }
+
+    // Filter by skills (comma separated: "React,Node.js,MongoDB")
+    if (skills) {
+      const skillsArray = skills.split(',').map(s => s.trim());
+      filter.skills = { $in: skillsArray };
+    }
+
+    // ── Pagination ─────────────────────────────────────────────
+    const pageNum  = Math.max(1, parseInt(page));
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit))); // max 50 per page
+    const skip     = (pageNum - 1) * limitNum;
+
+    // ── Sorting ────────────────────────────────────────────────
+    const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+
+    // ── Execute Queries ────────────────────────────────────────
+    // Run both queries simultaneously using Promise.all
+    const [jobs, totalJobs] = await Promise.all([
+      Job.find(filter)
+        .populate('postedBy', 'name email company')
+        .sort(sort)
+        .skip(skip)
+        .limit(limitNum),
+      Job.countDocuments(filter) // total count for pagination meta
+    ]);
+
+    // ── Pagination Metadata ────────────────────────────────────
+    const totalPages  = Math.ceil(totalJobs / limitNum);
+    const hasNextPage = pageNum < totalPages;
+    const hasPrevPage = pageNum > 1;
 
     res.status(200).json(
-      new ApiResponse(200, { jobs, count: jobs.length }, 'Jobs fetched successfully')
+      new ApiResponse(200, {
+        jobs,
+        pagination: {
+          totalJobs,
+          totalPages,
+          currentPage:  pageNum,
+          limit:        limitNum,
+          hasNextPage,
+          hasPrevPage
+        }
+      }, 'Jobs fetched successfully')
     );
+
   } catch (error) {
     next(error);
   }
